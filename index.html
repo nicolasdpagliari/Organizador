@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Organizá tus tareas personales de una forma simple y tranquila.">
+  <title>Organizador · Tus tareas, en orden</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <a class="brand" href="index.html"><span class="brand-icon" aria-hidden="true">✓</span> Organizador</a>
+      <span class="header-note">Un poco de orden, más tranquilidad.</span>
+    </header>
+    <section class="intro" aria-labelledby="page-title">
+      <p class="eyebrow">TU ESPACIO PERSONAL</p>
+      <h1 id="page-title">Hacé lugar para lo importante.</h1>
+      <p>Anotá tus ideas, ordená tus pendientes y avanzá a tu ritmo.</p>
+    </section>
+    <div class="workspace">
+      <section class="card composer" aria-labelledby="form-heading">
+        <div class="section-icon" aria-hidden="true">＋</div>
+        <h2 id="form-heading">Nueva tarea</h2>
+        <p class="muted">Todo empieza con un pequeño paso.</p>
+        <form id="task-form" novalidate>
+          <label for="task-title">Título <span class="required">(obligatorio)</span></label>
+          <input id="task-title" name="title" placeholder="¿Qué tenés que hacer?" maxlength="150" required aria-describedby="title-error">
+          <p id="title-error" class="error" hidden>Escribí un título para la tarea.</p>
+          <label for="task-description">Descripción <span class="required">(opcional)</span></label>
+          <textarea id="task-description" name="description" rows="5" maxlength="3000" placeholder="Agregá los detalles que quieras recordar…"></textarea>
+          <button type="submit" id="submit-button" class="primary">＋ Agregar tarea</button>
+          <button type="button" id="cancel-edit" class="secondary" hidden>Cancelar edición</button>
+        </form>
+        <p class="storage-note">Tus tareas se guardan en este navegador.</p>
+      </section>
+      <section class="tasks-section" aria-labelledby="tasks-heading">
+        <div class="list-heading"><div><h2 id="tasks-heading">Mis tareas</h2><p id="pending-count" class="muted" aria-live="polite"></p></div><span class="list-icon" aria-hidden="true">☷</span></div>
+        <div class="filters" role="group" aria-label="Filtrar tareas">
+          <button type="button" data-filter="all" aria-pressed="true">Todas</button>
+          <button type="button" data-filter="pending" aria-pressed="false">Pendientes</button>
+          <button type="button" data-filter="completed" aria-pressed="false">Completadas</button>
+        </div>
+        <ul id="task-list" aria-label="Lista de tareas"></ul>
+        <div id="empty-state" class="empty-state"><span aria-hidden="true">✓</span><h3>Un nuevo comienzo</h3><p>Agregá tu primera tarea y empezá a liberar espacio mental.</p></div>
+      </section>
+    </div>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+    <p id="storage-error" class="error storage-error" role="alert" hidden></p>
+    <footer>Un paso a la vez también es avanzar.</footer>
+  </main>
+</body>
+</html>
