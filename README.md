@@ -1,4 +1,42 @@
-# Organizador
+# Organizador 2.0
+
+## Novedades de la versión 2
+
+- Interfaz responsive, progreso global (completadas, total y porcentaje) y estados vacíos según el filtro.
+- Apariencia Sistema, Claro u Oscuro. Sistema sigue `prefers-color-scheme`, incluidos cambios mientras la página está abierta. La preferencia se guarda por separado en `organizador.theme.v1`.
+- Guardado con resultado verificable. Si falla, los cambios normales siguen en memoria y aparece una advertencia accesible; no se anuncia que se guardaron. **Exportá antes de cerrar o recargar**.
+- Botón **Exportar tareas**: descarga todas las tareas en memoria, independientemente del filtro, con las APIs Blob y URL del navegador.
+- Botón **Importar tareas**: seleccioná un JSON de hasta 10 MiB. Se valida por completo, se informa fecha, cantidad, completadas y pendientes y se pide confirmación antes de reemplazar. Una copia vacía también reemplaza las tareas, previa confirmación.
+
+El archivo de copia tiene este formato (la versión de copia es independiente de la versión de la aplicación):
+
+```json
+{
+  "formatVersion": 1,
+  "exportedAt": "2026-11-01T12:00:00.000Z",
+  "tasks": [
+    { "id": "ejemplo-1", "title": "Mi tarea", "description": "", "completed": false }
+  ]
+}
+```
+
+Se rechazan formatos desconocidos, fechas inválidas, IDs vacíos o duplicados, títulos vacíos o mayores a 150 caracteres, descripciones que no sean texto o mayores a 3000 y estados que no sean booleanos. No se ejecuta HTML ni JavaScript del archivo. El array crudo de localStorage no es un archivo de copia: usá Exportar tareas para obtener el formato compatible.
+
+La importación escribe primero y solo reemplaza la memoria tras un guardado exitoso. Ante validación, lectura o escritura fallida, conserva las tareas originales en memoria; un `setItem` fallido conserva el valor anterior según el contrato de Web Storage. No intenta restaurarlo con una segunda escritura que podría fallar o sobrescribir cambios de otra pestaña. Si se detectaron datos ilegibles al iniciar, se bloquean tanto el guardado como la importación para protegerlos. La exportación sigue disponible para las tareas en memoria, pero no recupera los datos ilegibles.
+
+Se conserva **`organizador.tasks.v1`** y su array JSON, sin migración ni escritura al iniciar. Para compatibilidad, la carga conserva los registros antes aceptados incluso si exceden los límites actuales; las importaciones y los envíos del formulario exigen los límites. Una exportación de datos heredados fuera de esos límites deberá corregirse antes de poder reimportarse.
+
+## Pruebas sin dependencias
+
+Con Node.js instalado, desde esta carpeta:
+
+```text
+node --test task-data.test.cjs
+node --check script.js
+node --check task-data.js
+```
+
+Las pruebas cubren validación, límites, formato de copias, importación y errores de almacenamiento con dobles en memoria. También ejecutan los manejadores reales con un DOM simulado: arranque protegido, mensajes de edición fallida, importación cancelada o fallida, progreso y operaciones básicas. No acceden al localStorage real de los usuarios. Para la revisión manual, comprobar además descarga y selección de archivos, cancelación y confirmación, ambos temas, cambios de tema del sistema, teclado, lector de pantalla y vista móvil. El foco visible y los mensajes `aria-live` no sustituyen una evaluación con tecnologías de asistencia reales.
 
 Aplicación web para gestionar tareas personales, completamente en español y sin dependencias, instalaciones ni servidor.
 
@@ -8,7 +46,7 @@ Aplicación web para gestionar tareas personales, completamente en español y si
 2. Hacé doble clic en **index.html**. Se abrirá en tu navegador predeterminado.
 3. Si preferís otro navegador, hacé clic derecho sobre el archivo y elegí **Abrir con** → Edge, Chrome o Firefox.
 
-Los archivos `styles.css` y `script.js` deben permanecer junto a `index.html`. No es necesario ejecutar comandos ni usar Live Server.
+Los archivos `styles.css`, `task-data.js` y `script.js` deben permanecer junto a `index.html`. No es necesario ejecutar comandos ni usar Live Server.
 
 ## Cómo usarla
 
@@ -57,4 +95,6 @@ El título admite hasta 150 caracteres y la descripción hasta 3000.
 | `index.html` | Estructura y formulario |
 | `styles.css` | Apariencia y diseño adaptable |
 | `script.js` | Tareas, filtros, validación y guardado |
+| `task-data.js` | Validación, formato de copias y persistencia sin DOM |
+| `task-data.test.cjs` | Pruebas con Node.js, sin dependencias |
 | `README.md` | Instrucciones y verificación |

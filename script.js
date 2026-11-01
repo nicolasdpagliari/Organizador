@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 const STORAGE_KEY = "organizador.tasks.v1";
 const form = document.querySelector("#task-form");
@@ -19,14 +19,7 @@ function loadTasks() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === null) return;
     const parsed = JSON.parse(saved);
-    const ids = new Set();
-    if (!Array.isArray(parsed) || !parsed.every(task => {
-      if (!task || typeof task.id !== "string" || ids.has(task.id) ||
-          typeof task.title !== "string" || !task.title.trim() ||
-          typeof task.description !== "string" || typeof task.completed !== "boolean") return false;
-      ids.add(task.id);
-      return true;
-    })) throw new Error("Datos inválidos");
+    TaskData.validateTasks(parsed, false); // Preserve valid legacy data, including older oversized fields.
     tasks = parsed;
   } catch {
     storageReadable = false;
@@ -35,17 +28,23 @@ function loadTasks() {
   }
 }
 
-function saveTasks() {
-  if (!storageReadable) return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-    storageError.hidden = true;
-  } catch {
-    storageError.textContent = "No se pudieron guardar los cambios. Tus tareas siguen disponibles en esta pestaña, pero podrían perderse al cerrarla. Revisá si el navegador permite el almacenamiento local.";
-    storageError.hidden = false;
+function showStorageResult(result) {
+  storageError.hidden = result.ok;
+  if (!result.ok) {
+    storageError.textContent = result.reason === "protected"
+      ? "El almacenamiento está protegido porque no se pudo interpretar. Los datos anteriores no se sobrescribirán. Exportá las tareas en memoria antes de recargar."
+      : "No se pudieron guardar los cambios. Exportá las tareas en memoria antes de cerrar o recargar esta pestaña.";
   }
+  return result;
 }
 
+function saveTasks() {
+  return showStorageResult(TaskData.writeTasks(() => localStorage, tasks, storageReadable));
+}
+
+function announceChange(message, result) {
+  status.textContent = result.ok ? message : "Cambio aplicado solo en memoria. No se guardó; podés exportarlo.";
+}
 function resetForm() {
   editingId = null;
   form.reset();
@@ -72,6 +71,10 @@ function renderTasks(focusId = null) {
   list.replaceChildren();
   const pending = tasks.filter(task => !task.completed).length;
   document.querySelector("#pending-count").textContent = pending === 1 ? "Tenés 1 tarea pendiente" : `Tenés ${pending} tareas pendientes`;
+  const completed = tasks.length - pending;
+  const percentage = tasks.length ? Math.round(completed / tasks.length * 100) : 0;
+  document.querySelector("#progress-text").textContent = `${completed} de ${tasks.length} completadas · ${percentage}%`;
+  document.querySelector("#task-progress").value = percentage;
   const visible = tasks.filter(task => filter === "all" || (filter === "completed" ? task.completed : !task.completed));
   visible.forEach(task => {
     const item = document.createElement("li");
@@ -83,9 +86,9 @@ function renderTasks(focusId = null) {
     checkbox.setAttribute("aria-label", `Marcar como ${task.completed ? "pendiente" : "completada"}: ${task.title}`);
     checkbox.addEventListener("change", () => {
       task.completed = checkbox.checked;
-      saveTasks();
+      const saved = saveTasks();
       renderTasks(task.id);
-      status.textContent = task.completed ? "Tarea completada. ¡Un paso más!" : "Tarea marcada como pendiente.";
+      announceChange(task.completed ? "Tarea completada. ¡Un paso más!" : "Tarea marcada como pendiente.", saved);
     });
     const content = document.createElement("div");
     content.className = "task-content";
@@ -114,10 +117,10 @@ function renderTasks(focusId = null) {
       const index = visible.indexOf(task);
       tasks = tasks.filter(entry => entry.id !== task.id);
       if (editingId === task.id) resetForm();
-      saveTasks();
+      const saved = saveTasks();
       renderTasks(visible[index + 1]?.id || visible[index - 1]?.id);
       if (tasks.length === 0) titleInput.focus();
-      status.textContent = "Tarea eliminada.";
+      announceChange("Tarea eliminada.", saved);
     });
     actions.append(edit, remove);
     item.append(checkbox, content, actions);
@@ -133,6 +136,7 @@ function renderTasks(focusId = null) {
 form.addEventListener("submit", event => {
   event.preventDefault();
   const title = titleInput.value.trim();
+  titleError.textContent = "Escribí un título para la tarea.";
   if (!title) {
     titleError.hidden = false;
     titleInput.setAttribute("aria-invalid", "true");
@@ -140,6 +144,12 @@ form.addEventListener("submit", event => {
     return;
   }
   const description = descriptionInput.value.trim();
+  if (title.length > 150 || description.length > 3000) {
+    titleError.textContent = "Límites: título 150 y descripción 3000 caracteres.";
+    titleError.hidden = false;
+    titleInput.focus();
+    return;
+  }
   const wasEditing = editingId !== null;
   if (wasEditing) {
     const task = tasks.find(entry => entry.id === editingId);
@@ -150,10 +160,10 @@ form.addEventListener("submit", event => {
     do { id = `${Date.now()}-${Math.random().toString(36).slice(2)}`; } while (tasks.some(task => task.id === id));
     tasks.unshift({ id, title, description, completed: false });
   }
-  saveTasks();
+  const saved = saveTasks();
   resetForm();
   renderTasks();
-  status.textContent = wasEditing ? "Cambios guardados." : filter === "completed" ? "Tarea agregada. Podés verla en Todas o Pendientes." : "Tarea agregada.";
+  announceChange(wasEditing ? "Cambios guardados." : filter === "completed" ? "Tarea agregada. Podés verla en Todas o Pendientes." : "Tarea agregada.", saved);
   titleInput.focus();
 });
 
@@ -176,5 +186,82 @@ document.querySelectorAll("[data-filter]").forEach(button => {
   });
 });
 
+function exportTasks() {
+  try {
+    const blob = new Blob([JSON.stringify(TaskData.makeBackup(tasks), null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `organizador-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    status.textContent = "Copia preparada para descargar. Incluye todas las tareas en memoria.";
+  } catch {
+    status.textContent = "No se pudo exportar la copia. Intentá nuevamente en este navegador.";
+  }
+}
+
+let importing = false;
+async function handleImport(event) {
+  const file = event.target.files[0];
+  if (!file || importing) return;
+  importing = true;
+  document.querySelector("#import-tasks").disabled = true;
+  try {
+    if (file.size > 10 * 1024 * 1024) throw new Error("El archivo supera el límite de 10 MiB.");
+    const backup = TaskData.parseBackup(await file.text());
+    if (!storageReadable) throw new Error("Importación bloqueada para proteger datos almacenados ilegibles. Exportá tus tareas y revisá el almacenamiento antes de recargar.");
+    const completed = backup.tasks.filter(task => task.completed).length;
+    const confirmed = window.confirm(`Copia del ${new Date(backup.exportedAt).toLocaleString("es-AR")}: ${backup.tasks.length} tareas, ${completed} completadas y ${backup.tasks.length - completed} pendientes.\nReemplazará las ${tasks.length} tareas actuales, incluidos cambios solo en memoria. Exportá primero si querés conservarlas.\n¿Confirmás el reemplazo?`);
+    if (!confirmed) {
+      status.textContent = "Importación cancelada. Tus tareas siguen intactas.";
+      return;
+    }
+    const result = TaskData.importTasks(() => localStorage, tasks, backup.tasks, storageReadable);
+    showStorageResult(result);
+    if (!result.ok) {
+      status.textContent = "No se importaron las tareas. Se conservaron las tareas originales en memoria; la escritura fallida no reemplazó el almacenamiento.";
+      return;
+    }
+    tasks = result.tasks;
+    resetForm();
+    renderTasks();
+    status.textContent = `Importación guardada: ${tasks.length} tareas. Revisá los filtros para verlas.`;
+  } catch (error) {
+    status.textContent = `No se importó el archivo. ${error.message} Tus tareas actuales no se reemplazaron.`;
+  } finally {
+    event.target.value = "";
+    importing = false;
+    document.querySelector("#import-tasks").disabled = false;
+    document.querySelector("#import-tasks").focus();
+  }
+}
+
+function setupTheme() {
+  const select = document.querySelector("#theme");
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  try {
+    const saved = localStorage.getItem("organizador.theme.v1");
+    if (["light", "dark", "system"].includes(saved)) select.value = saved;
+  } catch { /* Theme storage is independent from task storage. */ }
+  const apply = () => {
+    document.documentElement.dataset.theme = select.value === "system" ? (media.matches ? "dark" : "light") : select.value;
+  };
+  select.addEventListener("change", () => {
+    apply();
+    try { localStorage.setItem("organizador.theme.v1", select.value); }
+    catch { status.textContent = "Apariencia aplicada. No se pudo guardar la preferencia para la próxima visita."; }
+  });
+  media.addEventListener("change", apply);
+  apply();
+}
+
+document.querySelector("#export-tasks").addEventListener("click", exportTasks);
+document.querySelector("#import-tasks").addEventListener("click", () => document.querySelector("#import-file").click());
+document.querySelector("#import-file").addEventListener("change", handleImport);
+setupTheme();
 loadTasks();
 renderTasks();
+

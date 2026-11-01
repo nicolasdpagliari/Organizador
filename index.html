@@ -6,18 +6,30 @@
   <meta name="description" content="Organizá tus tareas personales de una forma simple y tranquila.">
   <title>Organizador · Tus tareas, en orden</title>
   <link rel="stylesheet" href="styles.css">
+  <script src="task-data.js" defer></script>
   <script src="script.js" defer></script>
 </head>
 <body>
   <main class="app">
     <header class="header">
       <a class="brand" href="index.html"><span class="brand-icon" aria-hidden="true">✓</span> Organizador</a>
-      <span class="header-note">Un poco de orden, más tranquilidad.</span>
+      <label class="theme-control" for="theme">Apariencia
+        <select id="theme"><option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Oscuro</option></select>
+      </label>
     </header>
     <section class="intro" aria-labelledby="page-title">
       <p class="eyebrow">TU ESPACIO PERSONAL</p>
       <h1 id="page-title">Hacé lugar para lo importante.</h1>
       <p>Anotá tus ideas, ordená tus pendientes y avanzá a tu ritmo.</p>
+    </section>
+    <section class="overview card" aria-labelledby="progress-heading">
+      <div><p class="eyebrow">CADA PASO CUENTA</p><h2 id="progress-heading">Tu progreso</h2><p id="progress-text" aria-live="polite"></p></div>
+      <progress id="task-progress" max="100" value="0" aria-label="Porcentaje de tareas completadas"></progress>
+    </section>
+    <section class="backup-bar" aria-label="Copias de seguridad">
+      <p>Tus tareas, siempre con vos. <span class="muted">Guardá una copia antes de reemplazarlas.</span></p>
+      <div class="backup-actions"><button id="export-tasks" type="button">Exportar tareas</button><button id="import-tasks" type="button">Importar tareas</button></div>
+      <input id="import-file" type="file" accept=".json,application/json" hidden aria-label="Seleccionar copia de tareas">
     </section>
     <div class="workspace">
       <section class="card composer" aria-labelledby="form-heading">
